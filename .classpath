@@ -15,6 +15,11 @@
 	<classpathentry kind="lib" path="lib/xerces.jar"/>
 	<classpathentry kind="lib" path="lib/xercesImpl.jar"/>
 	<classpathentry kind="lib" path="lib/xml-apis.jar"/>
+	<classpathentry kind="lib" path="/home/cis555/je-5.0.34/lib/je-5.0.34.jar">
+		<attributes>
+			<attribute name="javadoc_location" value="file:/home/cis555/je-5.0.34/docs/java/"/>
+		</attributes>
+	</classpathentry>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

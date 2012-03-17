@@ -1,0 +1,26 @@
+Full name: Sanjay Paul
+SEAS login: sanjayp
+
+Description of features implemented:
+ -All major features implemented. 
+ -Testing facilities are discussed in "resources/TESTS" (did not use JUnit due to time constraints)
+ -Note:Other testing was conducted while debugging, but is not documented here.
+
+Extra credits claimed:
+  None
+
+List of source files included (consider using `find src | grep java`)
+
+src/edu/upenn/cis/cis555/XPathEngine.java
+src/edu/upenn/cis/cis555/XPathServlet.java
+src/edu/upenn/cis/cis555/Testing.java
+
+Outside sources used:
+  Oracle documentation
+  Stack Overflow  
+  XFilter Paper 
+  Other resources noted 
+
+Special instructions for building or running:
+ The web.xml is located in the src directory. Testing.java can be run after the project is built using the provided script and will output to System.out. 
+ The servlet and engine are packaged in edu.upenn.cis.cis555.  

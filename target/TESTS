@@ -1,0 +1,26 @@
+Tests Performed:
+
+*run main method of Testing.java for tests of isValid and document parsing
+**Testing of the filter itself was done manually. Below are some of tests that can 
+be performed. Copying and pasting into the relevant form fields will produce the results
+noted.  
+
+XPathEngine evaluate:
+
+Path
+	http://crawltest.cis.upenn.edu/misc/eurofxref-daily.xml
+
+Confirmed Valid
+
+  	/gesmes:Envelope;
+ 	/gesmes:Envelope/gesmes:Sender/gesmes:name[text()="European Central Bank"];
+ 	/gesmes:Envelope/Cube/Cube[@time="2006-02-03"]/Cube[@currency="USD"][@rate="1.2061"];
+ 	/gesmes:Envelope/gesmes:Sender/gesmes:name[contains(text(),"Europe")]
+
+Confirmed Invalid
+
+	/gesmes:Envelop;
+	/gesmes:Envelope/gesmes:Sender/gesmes:name[text()="European Cental Bank"];
+	/gesmes:Envelope/Cube/Cube[@time="2006-02-03"]/Cube[@currency="USD"][@ate="1.2061"];
+	/gesmes:Envelope/gesmes:Sender/gesmes:name[contains(text(),"Euope")]
+
