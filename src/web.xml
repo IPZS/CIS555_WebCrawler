@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<!DOCTYPE web-app 
+    PUBLIC "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN" 
+    "http://java.sun.com/dtd/web-app_2_3.dtd">
+
+<web-app>
+
+	<context-param>
+		<param-name>db_location</param-name>
+		<param-value>/bdbstore</param-value>
+	</context-param>
+
+	<servlet>
+		<servlet-name>xpaths</servlet-name>
+		<servlet-class>XPathServlet</servlet-class>
+	</servlet>
+
+	<servlet-mapping>
+		<servlet-name>xpaths</servlet-name>
+		<url-pattern>/dashboard</url-pattern>
+	</servlet-mapping>
+
+	<servlet-mapping>
+		<servlet-name>xpaths</servlet-name>
+		<url-pattern>/welcome</url-pattern>
+	</servlet-mapping>
+	
+	<servlet-mapping>
+		<servlet-name>xpaths</servlet-name>
+		<url-pattern>/channel*</url-pattern>
+	</servlet-mapping>
+	
+	<servlet-mapping>
+		<servlet-name>xpaths</servlet-name>
+		<url-pattern>/delete_channel*</url-pattern>
+	</servlet-mapping>
+
+	<servlet-mapping>
+		<servlet-name>xpaths</servlet-name>
+		<url-pattern>/create_account</url-pattern>
+	</servlet-mapping>
+
+	<servlet-mapping>
+		<servlet-name>xpaths</servlet-name>
+		<url-pattern>/create_channel</url-pattern>
+	</servlet-mapping>
+
+	<servlet-mapping>
+		<servlet-name>xpaths</servlet-name>
+		<url-pattern>/pass_new_account</url-pattern>
+	</servlet-mapping>
+	
+	<servlet-mapping>
+		<servlet-name>xpaths</servlet-name>
+		<url-pattern>/pass_login</url-pattern>
+	</servlet-mapping>
+	
+	<servlet-mapping>
+		<servlet-name>xpaths</servlet-name>
+		<url-pattern>/pass_new_channel</url-pattern>
+	</servlet-mapping>
+	
+	<session-config>
+		<session-timeout>30</session-timeout>    <!-- 30 minutes -->
+	</session-config>
+
+</web-app>
+

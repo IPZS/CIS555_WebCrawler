@@ -1,6 +1,7 @@
-package edu.upenn.cis.cis555;
+//package edu.upenn.cis.cis555;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
@@ -8,8 +9,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.io.StringReader;
 import java.net.Socket;
 import java.net.URL;
+import java.util.HashMap;
+import java.util.List;
 
 import javax.activation.MimetypesFileTypeMap;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -21,8 +25,6 @@ import org.w3c.tidy.Tidy;
 import org.xml.sax.SAXException;
 
 public class DocumentCreator {
-	
-	private static final int ERROR=-1, XML=1, HTML=2; 
 	
 	/*
 	 * Parses a given URL (HTTP or absolute directory path) and creates a DOM-style Document node
@@ -36,42 +38,49 @@ public class DocumentCreator {
 	 * 
 	 * @return The Document matching the URL or null on error. 
 	 */
-	static Document createDocument(String url, String file_name) throws IOException
+	public static Document createDocument(String url, String file_name) throws IOException
 	{
 		String location = null, machine=null; 
 		Socket client = null;
 		File file = null; 
 		Document doc = null;
-		InputStream input = null; 
-		int head_check; 
+		InputStream input = null;
 		boolean is_xml=false; 
 		
 		//handle URL case
 		if(url.startsWith("http://"))
 		{	
-			//Establish socket and reader/writer
-			//TODO: Confirm this works
-			URL urlref = new URL(url);
-			int port = urlref.getPort(); 
-			if(port==-1)
-				port = 80; 
-			machine = urlref.getHost()+":"+String.valueOf(urlref.getPort()); 
-			
-			location = urlref.getPath();  
-			
-			client = new Socket(machine,80);
-			PrintWriter writer = new PrintWriter(client.getOutputStream()); 
-			BufferedReader reader = new BufferedReader(new InputStreamReader(client.getInputStream()));
-			
 			//Send HEAD request to check url validity 
-			head_check = checkHead(location, machine, reader, writer); 
-			if(head_check==ERROR) return null; 
-			if(head_check==XML) is_xml=true;
-			else is_xml=false; 
+			HashMap<String, String> head_check = null;
+			try {
+				head_check = URLMessenging.checkHead(url, null);
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				Logger.error(e.toString());
+			} 
+			if(head_check==null) return null; 
+			if(head_check.isEmpty()) return null; 
+			
+			if(!head_check.get("initial").contains("200")) return null;
+			
+			for(int x=1;x<head_check.size();x++)
+			{
+				String line= head_check.get("content-type"); 
+				if(line!=null)
+				{
+					if(line.contains("text/xml") || line.contains("application/xml"))
+						is_xml=true; 
+					else
+					{
+						if(!line.contains("text/html"))
+							return null; 
+					}
+				}
+			}
 			
 			//Send GET request to obtain and save file
 			if(file_name==null) file_name = "TEMP"; 
-			file = outputToFile(location, machine, file_name, reader, writer);
+			file = URLMessenging.outputToFile(url, file_name);
 			if(file==null) return null; 
 			if(file_name.equals("TEMP")) file.deleteOnExit(); 
 		}
@@ -108,13 +117,13 @@ public class DocumentCreator {
 			try {
 				doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file);
 			} catch (SAXException e) {
-				e.printStackTrace();
+				Logger.error(e.toString());
 				return null; 
 			} catch (ParserConfigurationException e) {
-				e.printStackTrace();
+				Logger.error(e.toString());
 				return null; 
 			} catch (FactoryConfigurationError e) {
-				e.printStackTrace();
+				Logger.error(e.toString());
 				return null; 
 			}  
 		}
@@ -122,78 +131,53 @@ public class DocumentCreator {
 		return doc; 
 	}
 	
-	static int checkHead(String location, String machine, BufferedReader reader, PrintWriter writer)
-	{ 
-		//first perform check with HEAD to determine validity and mimetype 
-		try
-		{ 	
-			writer.println("HEAD "+location+" HTTP/1.1\r\nHost: "+machine+"\r\nConnection: keep-alive\r\n\r\n");
-			writer.flush(); 
-			String line; 
-			
-			while((line=reader.readLine())!=null && line.length()>0)
-			{
-				line = line.toLowerCase();
-				if(line.startsWith("http/"))
-				{
-					if(!line.contains("200"))
-						return ERROR;  
-				}
-				if(line.contains("content-type"))
-				{
-					if(line.contains("text/xml") || line.contains("application/xml"))
-						return XML; 
-					else
-					{
-						if(line.contains("text/html"))
-							return HTML; 
-						else
-							return ERROR;  
-					}
-				}
-				else return ERROR; 
-			}
-		}
-		catch(Exception e)
+	/*
+	 * Retrieves a Page from the provided database and creates a DOM-style Document node 
+	 * corresponding to its data. 
+	 * 
+	 * @param url A String that is a key into the database for the desired page.  
+	 * 
+	 * @param db The DatabaseWrapper from which to retrieve the page.
+	 * 
+	 * @return The Document corresponding to the Page or null on error. 
+	 */
+	public static Document convertToDocument(Page page, String data) throws IOException
+	{
+		Document doc = null;
+		InputStream input = null;
+		
+		input = new ByteArrayInputStream(data.getBytes("UTF-8")); 
+		
+		//JTidy for HTML
+		if(page.type==StatusCodes.HTML)
 		{
-			e.printStackTrace(); 
+			long start = System.currentTimeMillis(); 
+			Tidy tidy = new Tidy();
+			tidy.setTidyMark(false); 
+			tidy.setShowWarnings(false);
+			doc = tidy.parseDOM(input, null); 
+			System.out.println("JTidy Parse Time: "+(System.currentTimeMillis()-start)+"ms"); 
+		}
+		//DocumentBuilder for XML
+		else
+		{
+			long start = System.nanoTime(); 
+			try { 
+				doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(input);
+			} catch (SAXException e) {
+				// TODO Auto-generated catch block
+				Logger.error(e.toString());
+			} catch (ParserConfigurationException e) {
+				// TODO Auto-generated catch block
+				Logger.error(e.toString());
+			} catch (FactoryConfigurationError e) {
+				// TODO Auto-generated catch block
+				Logger.error(e.toString());
+			}
+			System.out.println("DocBuilder Parse Time: "+(System.currentTimeMillis()-start)+"ms"); 
 		}
 		
-		return ERROR; 
+		return doc; 
 	}
 	
-	static File outputToFile(String location, String machine, String file_name, BufferedReader reader, 
-			PrintWriter writer)
-	{
-		File file = null; 
-		
-		//output contents to file
-		try
-		{
-			writer.println("GET "+location+" HTTP/1.1\r\nHost: "+machine+"\r\nConnection: close\r\n\r\n");
-			writer.flush(); 
-			String line=null; 
-			int length = -1; 
-			while((line=reader.readLine())!=null && line.length()>0)
-			{ 
-				line = line.toLowerCase(); 
-				if(line.trim().startsWith("content-length:"))
-						length = Integer.parseInt(line.replaceFirst("content-length:","").trim());
-			}
-			if(length==-1)
-				return null; 
-			file = new File(file_name);
-			FileWriter fwriter = new FileWriter(file);
-			while((line=reader.readLine())!=null)
-				fwriter.write(line); 
-			fwriter.flush(); 
-			fwriter.close();  
-		}
-		catch(Exception e)
-		{
-			e.printStackTrace(); 
-		}
-		
-		return file; 
-	}
 }

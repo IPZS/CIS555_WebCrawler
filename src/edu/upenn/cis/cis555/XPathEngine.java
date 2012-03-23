@@ -1,4 +1,4 @@
-package edu.upenn.cis.cis555; 
+//package edu.upenn.cis.cis555; 
 
 import java.util.regex.*;
 
@@ -38,7 +38,6 @@ public class XPathEngine {
 	public boolean[] evaluate(Document d)
 	{
 		//printTree(d); 
-		
 		Node parent = d; 
 		
 		boolean[] arr = new boolean[expressions.length]; 

@@ -1,0 +1,9 @@
+
+	<title>Create New Account</title>
+	<form action="pass_new_account" method="post">
+		Username <input type="text" name="username"><br>
+		Password <input type="password" name="password"><br>
+		<input type="submit" submit="Create">
+		<font size="10">*Please limit to 16 characters using only a combination of letters and digits.</font> 
+	</form>
+

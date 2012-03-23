@@ -1,0 +1,10 @@
+
+	<title>Welcome!</title>
+	<h1>Please Login</h1>
+	<form action="/pass_login" method="post">
+		Username <input type="text" name="username"><br>
+		Password <input type="password" name="password"><br>
+		<input type="submit" name="Submit"><br>
+		<a href="/create_account">Click here to create a new account.</a>
+	</form>
+

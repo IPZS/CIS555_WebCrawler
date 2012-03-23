@@ -1,4 +1,4 @@
-package edu.upenn.cis.cis555; 
+//package edu.upenn.cis.cis555; 
 
 import java.io.IOException;
 import java.util.regex.Matcher;
@@ -12,7 +12,7 @@ public class Testing {
 	{
 		for(String location : locations)
 		{
-			Document doc = XPathServlet.createDocument(location);
+			Document doc = DocumentCreator.createDocument(location, null);
 			XPathEngine engine = new XPathEngine(new String[0]);
 			System.out.println("URL: "+location);
 			engine.printTree(doc); 
@@ -25,9 +25,46 @@ public class Testing {
 		for(int x=0;x<arr.length;x++)
 			System.out.println(arr[x]+" ("+engine.isValid(x)+")");
 	}
+	
+	static void createNewTestDB()
+	{
+		try {
+			DatabaseWrapper test = new DatabaseWrapper("/home/cis555/hw1/bdbstore/");
+			test.addUser("sanjayp1", "testificanjustgo"); 
+			test.validateUser("sanjayp1", "testificanjustgo");
+			String[] paths = {"blah"};
+			test.addChannel(paths, "empty", "blahblah", "sanjayp1");
+			for(String str : test.retrieveAllChannelNames())
+				System.out.println(str); 
+			test.close(); 
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	private static void displayPages(String[] pages)
+	{
+		DatabaseWrapper test = null;
+		try {
+			test = new DatabaseWrapper("/home/cis555/hw1/bdbstore/");
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		for(String page : pages)
+			System.out.println(test.retrievePageData(page)+"end\n\nbegin"); 
+	}
 
 	public static void main(String args[])
-	{
+	{ 
+		createNewTestDB(); 
+		/*String[] pages = {"http://crawltest.cis.upenn.edu", "http://crawltest.cis.upenn.edu/nytimes/",
+				"http://crawltest.cis.upenn.edu/misc/weather.xml"}; 
+		displayPages(pages); 
+		*/
+		
+		/*
 		//isValid Test
 		
 		//All should eval to true
@@ -69,6 +106,6 @@ public class Testing {
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-		} 
+		} */
 	}
 }
