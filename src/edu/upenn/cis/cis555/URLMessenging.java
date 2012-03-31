@@ -1,4 +1,4 @@
-//package edu.upenn.cis.cis555; 
+package edu.upenn.cis.cis555; 
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -9,6 +9,7 @@ import java.io.PrintWriter;
 import java.net.MalformedURLException;
 import java.net.Socket;
 import java.net.URL;
+import java.net.URLDecoder;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -30,20 +31,11 @@ public class URLMessenging {
 	
 	//TODO: Increase security of reads (i.e. read limits) 
 	
-	static URL setupReaderWriter(String url)
-	{
-		//Establish socket and reader/writer
-		URL urlref = null; 
-		try {
-			urlref = new URL(url);
-		} catch (MalformedURLException e1) {
-			Logger.error(e1.toString());
-			return null; 
-		}
-		
+	static void setupReaderWriter(URL url)
+	{	
 		try
 		{
-			client = new Socket(urlref.getHost(),80);
+			client = new Socket(url.getHost(),80);
 			if(client!=null)
 			{
 				writer = new PrintWriter(client.getOutputStream()); 
@@ -54,27 +46,24 @@ public class URLMessenging {
 		catch(Exception e)
 		{
 			Logger.error(e.toString());
-			return null; 
 		}
-		
-		return urlref; 
 	}
 	
 	/* Performs a Head check 
 	 * 
 	 * @return StatusCode indicating the file type or error condition. 
 	 */
-	static HashMap<String, String> checkHead(String url, List<String> headers) throws Exception
+	static HashMap<String, String> checkHead(URL url, List<String> headers) throws Exception
 	{ 
-		URL urlref = setupReaderWriter(url); 
-		if(urlref==null) return null; 
+		setupReaderWriter(url); 
+		if(url==null) return null; 
 		HashMap<String, String> header_map = new HashMap<String, String>(); 
 		
 		try
 		{ 	
-			String request = "\nRequest:\n\nHEAD "+(urlref.getPath().isEmpty() ? "/" : urlref.getPath())
-			+" HTTP/1.0\r\nHost: "+urlref.getHost()+"\r\n";
-			writer.println("HEAD "+(urlref.getPath().isEmpty() ? "/" : urlref.getPath())+" HTTP/1.0\r\nHost: "+urlref.getHost()+"\r\n");
+			String request = "\nRequest:\n\nHEAD "+(url.getPath().isEmpty() ? "/" : url.getPath())
+			+" HTTP/1.0\r\nHost: "+url.getHost()+"\r\n";
+			writer.println("HEAD "+(url.getPath().isEmpty() ? "/" : url.getPath())+" HTTP/1.0\r\nHost: "+url.getHost()+"\r\n");
 			if(headers!=null)
 			{
 				for(String str : headers)
@@ -141,17 +130,17 @@ public class URLMessenging {
 	/*
 	 * @return File reference or null on error
 	 */
-	static File outputToFile(String url, String file_name)
+	static File outputToFile(URL url, String file_name) throws Exception 
 	{
 		File file = null;
 		
-		URL urlref= setupReaderWriter(url); 
-		if(urlref==null) return null; 
+		setupReaderWriter(url); 
+		if(url==null) return null; 
 		
 		//output contents to file
 		try
 		{
-			writer.println("GET "+urlref.getPath()+" HTTP/1.0\r\nHost: "+urlref.getHost()
+			writer.println("GET "+url.getPath()+" HTTP/1.0\r\nHost: "+url.getHost()
 					+"\r\nConnection: close\r\n\r\n");
 			writer.flush(); 
 			String line=null; 
@@ -192,21 +181,21 @@ public class URLMessenging {
 	 * @return A String array. The first entry is the data and all remaining 
 	 * entries are outgoing links if retrieve_links is set to true
 	 */
-	static ArrayList<String> outputToString(String url, boolean retrieve_links, String[] headers) throws Exception
+	static ArrayList<String> outputToString(URL url, boolean retrieve_links, String[] headers) throws Exception
 	{
 		StringBuffer data = new StringBuffer(); 
 		StringBuffer links = new StringBuffer(); 
 		ArrayList<String> output = null; 
-		URL urlref= setupReaderWriter(url); 
+		setupReaderWriter(url); 
 
-		if(urlref==null) return null; 
+		if(url==null) return null; 
 		
 		//output contents to file
 		try
 		{
-			String path = urlref.getPath(); 
+			String path = url.getPath(); 
 			if(path.isEmpty()) path = "/";
-			writer.println("GET "+path+" HTTP/1.0\r\nHost: "+urlref.getHost()+"\r\n");
+			writer.println("GET "+path+" HTTP/1.0\r\nHost: "+url.getHost()+"\r\n");
 			if(headers!=null)
 			{
 				for(String str : headers)
@@ -225,7 +214,6 @@ public class URLMessenging {
 			{
 				while((line=reader.readLine())!=null)
 				{
-					System.out.println(line);
 					Pattern pat = Pattern.compile("\\s*[Hh][Rr][Ee][Ff]\\s*=\\s*[\"']"); 
 					Matcher mat = pat.matcher(line);
 					while(mat.find())
@@ -288,15 +276,15 @@ public class URLMessenging {
 	 * @return A BufferedReader positioned at the first line of the retrieved file 
 	 * or null on failure. 
 	 */
-	static BufferedReader retrieveReader(String url, String[] headers) throws Exception
+	static BufferedReader retrieveReader(URL url, String[] headers) throws Exception
 	{
 		StringBuffer data = new StringBuffer();
-		URL urlref= setupReaderWriter(url); 
-		if(urlref==null) return null;
+		setupReaderWriter(url); 
+		if(url==null) return null;
 		//output contents to file
 		try
 		{
-			writer.println("GET "+urlref.getPath()+" HTTP/1.0\r\nHost: "+urlref.getHost()+"\r\n");
+			writer.println("GET "+url.getPath()+" HTTP/1.0\r\nHost: "+url.getHost()+"\r\n");
 			if(headers!=null)
 			{
 				for(String str : headers)

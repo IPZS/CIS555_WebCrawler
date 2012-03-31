@@ -1,5 +1,4 @@
-
-	<title>Welcome!</title>
+	<title>XPath Search</title>
 	<h1>Please Login</h1>
 	<form action="/pass_login" method="post">
 		Username <input type="text" name="username"><br>

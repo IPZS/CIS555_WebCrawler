@@ -1,4 +1,4 @@
-//package edu.upenn.cis.cis555; 
+package edu.upenn.cis.cis555; 
 
 import java.util.regex.*;
 
@@ -19,10 +19,24 @@ public class XPathEngine {
 	 * evaluated. 
 	 */
 	public XPathEngine(String[] s)
-	{
+	{ 
 		if(s==null)
 			throw new IllegalArgumentException("The passed expression array pointer is null.");
 		expressions = s; 
+	}
+	
+	public int size()
+	{
+		if(expressions!=null)
+			return expressions.length; 
+		return -1; 
+	}
+	
+	public String getXPath(int x)
+	{
+		if(expressions!=null && x<expressions.length)
+			return expressions[x]; 
+		return null; 
 	}
 	
 	/*
@@ -59,7 +73,9 @@ public class XPathEngine {
 			if(!node_name.equals(parent.getNodeName()))
 				arr[x] = false; 
 			else
+			{ 
 				arr[x] = checkNode(path,parent); 
+			}
 		}
 		
 		return arr;  
@@ -75,6 +91,11 @@ public class XPathEngine {
 		
 		//pass to recursive call
 		return isPath(expressions[i]); 
+	}
+	
+	static boolean isValid(String xpath)
+	{
+		return isPath(xpath);
 	}
 	
 	boolean checkNode(String path, Node parent)
@@ -242,7 +263,7 @@ public class XPathEngine {
 	
 	// isValid Helper Methods
 	
-	boolean isPath(String path)
+	static boolean isPath(String path)
 	{	
 		if(path.isEmpty()) return false; 
 		if(path.charAt(0)!='/')
@@ -250,7 +271,7 @@ public class XPathEngine {
 		return isStep(path.substring(1)); 	
 	}
 	
-	boolean isStep(String s_path)
+	static boolean isStep(String s_path)
 	{
 		if(!s_path.isEmpty())
 		{
@@ -299,7 +320,7 @@ public class XPathEngine {
 		return true;
 	}
 	
-	String getNextTest(String path)
+	static String getNextTest(String path)
 	{
 		boolean quoted = false; 
 		int opened = 0, r_index = 0; 
@@ -338,7 +359,7 @@ public class XPathEngine {
 		return path.substring(0,r_index); 
 	}
 	
-	boolean isTest(String tester)
+	static boolean isTest(String tester)
 	{
 		//remove brackets
 		tester = tester.substring(1); 

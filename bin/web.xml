@@ -1,24 +1,84 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 
-<!DOCTYPE web-app 
-    PUBLIC "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN" 
-    "http://java.sun.com/dtd/web-app_2_3.dtd">
+<!DOCTYPE web-app
+PUBLIC "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN"
+"http://java.sun.com/dtd/web-app_2_3.dtd">
 
 <web-app>
 
-    <servlet>
-	<servlet-name>filter</servlet-name>
-	<servlet-class>XPathServlet</servlet-class>
-    </servlet>
+	<context-param>
+		<param-name>db_location</param-name>
+		<param-value>/bdbstore</param-value>
+	</context-param>
 
-   <servlet-mapping>
-	<servlet-name>filter</servlet-name>
-	<url-pattern>/filter</url-pattern>
-    </servlet-mapping>
+	<servlet>
+		<servlet-name>xpaths</servlet-name>
+		<servlet-class>XPathServlet</servlet-class>
+	</servlet>
 
-    <servlet-mapping>
-	<servlet-name>filter</servlet-name>
-	<url-pattern>/passargs</url-pattern>
-    </servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>xpaths</servlet-name>
+		<url-pattern>/</url-pattern>
+	</servlet-mapping>
+
+	<servlet-mapping>
+		<servlet-name>xpaths</servlet-name>
+		<url-pattern>/dashboard</url-pattern>
+	</servlet-mapping>
+
+	<servlet-mapping>
+		<servlet-name>xpaths</servlet-name>
+		<url-pattern>/logout</url-pattern>
+	</servlet-mapping>
+
+	<servlet-mapping>
+		<servlet-name>xpaths</servlet-name>
+		<url-pattern>/welcome</url-pattern>
+	</servlet-mapping>
+	
+	<servlet-mapping>
+		<servlet-name>xpaths</servlet-name>
+		<url-pattern>/channel*</url-pattern>
+	</servlet-mapping>
+	
+	<servlet-mapping>
+		<servlet-name>xpaths</servlet-name>
+		<url-pattern>/user_channels</url-pattern>
+	</servlet-mapping>
+
+	<servlet-mapping>
+		<servlet-name>xpaths</servlet-name>
+		<url-pattern>/delete_channel*</url-pattern>
+	</servlet-mapping>
+
+	<servlet-mapping>
+		<servlet-name>xpaths</servlet-name>
+		<url-pattern>/create_account</url-pattern>
+	</servlet-mapping>
+
+	<servlet-mapping>
+		<servlet-name>xpaths</servlet-name>
+		<url-pattern>/create_channel</url-pattern>
+	</servlet-mapping>
+
+	<servlet-mapping>
+		<servlet-name>xpaths</servlet-name>
+		<url-pattern>/pass_new_account</url-pattern>
+	</servlet-mapping>
+	
+	<servlet-mapping>
+		<servlet-name>xpaths</servlet-name>
+		<url-pattern>/pass_login</url-pattern>
+	</servlet-mapping>
+	
+	<servlet-mapping>
+		<servlet-name>xpaths</servlet-name>
+		<url-pattern>/pass_new_channel</url-pattern>
+	</servlet-mapping>
+	
+	<session-config>
+		<session-timeout>30</session-timeout>  
+	</session-config>
 
 </web-app>
+

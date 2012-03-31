@@ -1,0 +1,9 @@
+	<title>XPath Search</title>
+	<h1>Dashboard</h1>
+	<body>
+		<a href="/channels">View All Channels</a><br>
+		<a href="/user_channels">View Your Channels</a><br>
+		<a href="/create_channel">Create A Channel</a><br>
+		<a href="/logout">Logout</a>
+	</body>
+

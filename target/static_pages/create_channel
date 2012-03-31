@@ -1,0 +1,8 @@
+	<form action="pass_new_channel" method="post">
+		Channel Name 	<input type="text" name="channel_name"><br>
+		XSL URL		<input type="text" name="xslt_url"><br>
+		XPaths        	<input type="text" name="xpaths"><br>
+		<font size="2"> *separate multiple XPaths with ';'<br>
+		*please limit channel names to a reasonable number of Alphanumeric characters<br></font>
+		<input type="submit">
+	</form>

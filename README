@@ -1,26 +1,42 @@
-Full name: Sanjay Paul
+Full name: Sanjay Paul_
 SEAS login: sanjayp
 
 Description of features implemented:
- -All major features implemented. 
- -Testing facilities are discussed in "resources/TESTS" (did not use JUnit due to time constraints)
- -Note:Other testing was conducted while debugging, but is not documented here.
+
+	-  All features requested are fully implemented with the exception of XSL stylesheets (enter random in this field 
+	creating a new channel)
+	- The warandpeace.xp file may be found in /resources. The paths are newline-separated. 
+	- XPathCrawler accepts an optional #file download limit. This seems unnecessary in the sandbox.
+	- XPathCrawler also accepts an optional logger flag. Simply append -l to the end of the call. 
+	- The Logger utility outputs to LOG (NOTE: lines flush on every 15 accumulated)
+	- Error output is not optional and updates live (flush on every line) - this can be found in ERROR
 
 Extra credits claimed:
   None
 
-List of source files included (consider using `find src | grep java`)
+SOURCE FILES: 
 
+src/edu/upenn/cis/cis555/DocumentCreator.java
+src/edu/upenn/cis/cis555/StatusCodes.java
+src/edu/upenn/cis/cis555/Page.java
+src/edu/upenn/cis/cis555/Status.java
 src/edu/upenn/cis/cis555/XPathEngine.java
+src/edu/upenn/cis/cis555/Robot.java
+src/edu/upenn/cis/cis555/Logger.java
+src/edu/upenn/cis/cis555/URLMessenging.java
 src/edu/upenn/cis/cis555/XPathServlet.java
+src/edu/upenn/cis/cis555/XPathCrawler.java
 src/edu/upenn/cis/cis555/Testing.java
+src/edu/upenn/cis/cis555/DatabaseWrapper.java
 
 Outside sources used:
   Oracle documentation
-  Stack Overflow  
-  XFilter Paper 
-  Other resources noted 
+  Stack Overflow   
+  JavaRanch
+  Wikipedia 
 
 Special instructions for building or running:
- The web.xml is located in the src directory. Testing.java can be run after the project is built using the provided script and will output to System.out. 
- The servlet and engine are packaged in edu.upenn.cis.cis555.  
+- The following should start the crawler with no file limit and the Logger utility disabled.
+java -cp target/WEB-INF/lib/je-4.1.7.jar:target/WEB-INF/lib/jtidy-r938.jar:target/WEB-INF/lib/hw2.jar XPathCrawler http://crawltest.cis.upenn.edu /bdbstore 2
+- Please Note: XPathServlet also requires the jtidy and je jar files (same location).
+- This is compatible with my server implementation. The same may not apply to Tomcat/Jetty.  

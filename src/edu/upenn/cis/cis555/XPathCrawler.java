@@ -1,5 +1,9 @@
+package edu.upenn.cis.cis555; 
+
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -15,11 +19,10 @@ import java.util.regex.Pattern;
 
 import org.w3c.dom.Document;
 
-//package edu.upenn.cis.cis555;
-
 /*TODO:
  * 
- * 	ISSUES:
+ * 	REFACTOR:
+ * 		- Forced crawl should be default behavior. 
  */
 
 public class XPathCrawler {
@@ -43,6 +46,8 @@ public class XPathCrawler {
 	private static HashSet<String> channels; 
 	//Stores a (one-to-many) mapping of xpaths to channels (note: actual relationship can be many-to-many)
 	private static HashMap<String, String[]> xpath_map;
+	//Stores XPathEngine
+	private static XPathEngine engine; 
 	//file size limit, in bytes
 	private static long MAX_FILE_SIZE;	
 	//file download limit, default to infinite
@@ -52,9 +57,9 @@ public class XPathCrawler {
 	//booleans indicating channel modification between crawls (allowing for savings in XPath checking)
 	//if no channels were added, then stored pages that have not been modified need not be rechecked
 	//if no channels were deleted, then there is no need to revise page-channel(s) associations
-	private static boolean channel_deleted = true, channel_added = true; 
-	
-	private static void runCrawler()
+	private static boolean channel_deleted = true, channel_added = true;
+
+	private static void runCrawler() throws Exception 
 	{
 		//Store the XPath to channel mapping
 		xpath_map = db.retrieveXPathMap(); 
@@ -63,6 +68,16 @@ public class XPathCrawler {
 			Logger.log("No XPaths stored."); 
 			return; 
 		}
+		
+		//Create the XPath Engine
+		String[] xpaths = new String[xpath_map.keySet().size()];
+		int x = 0; 
+		for(String str : xpath_map.keySet())
+		{
+			xpaths[x] = str; 
+			x++; 
+		}	
+		engine = new XPathEngine(xpaths); 
 		
 		//Retrieve stored robots
 		robots = db.retrieveRobots(); 
@@ -79,7 +94,7 @@ public class XPathCrawler {
 		channels.addAll(Arrays.asList(db.retrieveAllChannelNames())); 
 		
 		//Check if a channel was deleted since last crawl
-		String ch_check = db.retrievePageData("!CHANNEL_DEL");
+		String ch_check = db.retrieveDBParam("!CHANNEL_DEL");
 		if(ch_check!=null)
 		{
 			channel_deleted = ch_check.equals("1") ? true : false; 
@@ -87,7 +102,7 @@ public class XPathCrawler {
 		}
 		
 		//ch_check if a channel was added since last crawl
-		ch_check = db.retrievePageData("!CHANNEL_ADD");
+		ch_check = db.retrieveDBParam("!CHANNEL_ADD");
 		if(ch_check!=null)
 		{
 			channel_added= ch_check.equals("1") ? true : false; 
@@ -102,20 +117,30 @@ public class XPathCrawler {
 		//Handles each page encountered until completion
 		while(max_files_retrieved!=0 && !frontier.isEmpty())
 		{
-			boolean status = crawl(frontier.remove()); 
+			boolean status = false; 
+			URL url = frontier.remove(); 
+			try
+			{
+				status = crawl(url); 
+			}
+			catch(Exception e)
+			{
+				Logger.log("Exception encountered. Refer to error log."); 
+				Logger.error("Exception Encountered while crawling: "+url.toString()+". Stack trace follows."); 
+				e.printStackTrace(Logger.getErrorWriter()); 
+			}
 			Logger.log(status ? "" : "Crawl terminated prematurely.\n");
 			System.out.print("."); 
 		}
 	}
 	
-	private static boolean crawl(URL url)
+	private static boolean crawl(URL url) throws Exception 
 	{ 
 		long start=System.currentTimeMillis(), th=0, td=0, ts=0;
 		boolean is_new = false; 
 		
 		//Timer 
-		String url_key = url.toString(); 
-		Logger.log("Checking URL : "+url_key); 
+		Logger.log("Checking URL : "+url.toString()); 
 		start = System.currentTimeMillis(); 
 
 		//crawled ? return 
@@ -129,9 +154,9 @@ public class XPathCrawler {
 		
 		//Retrieve Page from store or create new one if not previously crawled
 		//TODO: Pages should store URL objects directly (for the sake of sanity)
-		if((page = db.retrievePageMetadata(url_key))==null)
+		if((page = db.retrievePageMetadata(url))==null)
 		{
-			page = new Page(url_key); 
+			page = new Page(url, "UTF-8"); 
 			is_new = true; 
 		}
 		
@@ -169,25 +194,11 @@ public class XPathCrawler {
 		boolean is_modified = true; 			
 		//Perform appropriate HEAD check and retrieve headers
 		
-		//If previously stored, check for modification
-		/*ArrayList<String> headers = null;
-		if(!is_new)
-		{
-			headers = new ArrayList<String>(1); 
-			try {
-				headers.add("If-Modified-Since: "+URLMessenging.dateToStringURL(new Date(page.time_last_access)));
-				Logger.log(headers.get(0)); 
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				Logger.error(e.toString());
-			} 
-		}*/
-		
 		//Obtain HEAD response 
 		HashMap<String, String> response = null;
 		try {
 			th = System.currentTimeMillis(); 
-			response = URLMessenging.checkHead(url_key, null);
+			response = URLMessenging.checkHead(url, null);
 			Logger.log("HEAD Request Time: "+(th=System.currentTimeMillis()-th)+"ms"); 
 		} catch (Exception e2) {
 			// Any exception thrown indicates an invalid connection 
@@ -214,16 +225,11 @@ public class XPathCrawler {
 				{
 					if((header=response.get("location"))!=null)
 					{
-						try {
-							//add to the beginning of the frontier to maintain 
-							//expansion order 
-							frontier.addFirst(new URL(header.trim()));
-							Logger.log("Redirecting."); 
-							return false; 
-						} catch (MalformedURLException e) {
-							// TODO Auto-generated catch block
-							Logger.error(e.toString());
-						} 
+						//add to the beginning of the frontier to maintain 
+						//expansion order 
+						frontier.addFirst(new URL(header.trim()));
+						Logger.log("Redirecting."); 
+						return false;  
 					}
 				}
 				else
@@ -245,10 +251,12 @@ public class XPathCrawler {
 		}
 		is_modified = last_modified>page.time_last_access || is_new; 
 		
-		//If no channel has been added and the page is not modified, return
+		//If no channel has been added, the page is not modified
 		if(!is_modified && !channel_added)
 		{
 			Logger.log("No channel has been added and the page is unmodified."); 
+			if(page!=null)
+				expandFrontier(page); 
 			return false;
 		}
 		
@@ -259,33 +267,44 @@ public class XPathCrawler {
 		//defaults to true in this case) or modification.
 		if(is_modified)
 		{
-			//Update content type 
+			//Update content type and encoding 
 			if((header=response.get("content-type"))!=null)
 			{
-				if(header.contains("text/xml") || header.contains("application/xml"))
-					page.type=StatusCodes.XML; 
-				else
+				String[] arr = header.split(";"); 
+			
+				//Handle type
+				if(arr.length>0 && arr[0]!=null && !arr[0].isEmpty())
 				{
-					if(header.contains("text/html"))
-						page.type=StatusCodes.HTML; 
+					if(arr[0].contains("text/xml") || arr[0].contains("application/xml"))
+						page.type=Status.Code.XML; 
 					else
 					{
-						if(url.getPath().endsWith(".rss") || header.contains("application/rss+xml"))
-							page.type = StatusCodes.RSS;
+						if(arr[0].contains("text/html"))
+							page.type=Status.Code.HTML; 
 						else
-							page.type=StatusCodes.OTHER_TYPE; 
+						{
+							if(url.getPath().endsWith(".rss") || arr[0].contains("application/rss+xml"))
+								page.type = Status.Code.RSS;
+							else
+								page.type=Status.Code.OTHER_TYPE; 
+						}
 					}
 				}
+				
+				//Handle encoding 
+				if(arr.length==2 && !arr[1].isEmpty())
+					page.encoding = arr[1].trim(); 
 			}
 			//If header absent, attempt to isolate page type from path extension
+			//Encoding defaults to UTF-8
 			else
 			{
 				if(url.getPath().endsWith(".html"))
-					page.type = StatusCodes.HTML; 
+					page.type = Status.Code.HTML; 
 				if(url.getPath().endsWith(".xml"))
-					page.type = StatusCodes.XML;
+					page.type = Status.Code.XML; 
 				if(url.getPath().endsWith(".rss"))
-					page.type = StatusCodes.RSS;
+					page.type = Status.Code.RSS;
 			}
 		
 			//Update file size
@@ -307,7 +326,7 @@ public class XPathCrawler {
 		
 		//Ignore page if not HTML, RSS, or XML (or if 
 		//unable to definitively ascertain content type)
-		if(page.type==StatusCodes.OTHER_TYPE)
+		if(page.type==Status.Code.OTHER_TYPE)
 		{
 			Logger.log("File is an invalid type."); 
 			return false;
@@ -322,8 +341,8 @@ public class XPathCrawler {
 		
 		String data = null; 
 
-		//Parse links and acquire page data via URL if new or if modified.
-		if(is_modified)
+		//Parse links and acquire page data via URL if new, modified, or not stored in the db.
+		if(is_modified || !page.stored)
 		{
 			td = System.currentTimeMillis(); 
 			data = updatePageAndData(page); 
@@ -344,9 +363,11 @@ public class XPathCrawler {
 		
 		//Page is finalized. Update db as appropriate.
 		//NOTE: remove "&& matched" to generate a broader crawler (store all encountered)
-		if(data!=null) 
+		if(data!=null && matched) 
 		{
 			ts = System.currentTimeMillis();
+			//set flag to indicate storage
+			page.stored = true; 
 			db.addPage(page, data); 
 			Logger.log("Storing to disk. Total Time: "+(ts=System.currentTimeMillis()-ts)+"ms"); 
 		}
@@ -360,8 +381,18 @@ public class XPathCrawler {
 			}
 		}
 		
+		expandFrontier(page); 
+	
+		Logger.log("Total Elapsed Time: "+(start=System.currentTimeMillis()-start)+"ms");
+		Logger.log("Percentage Time Due to Local Overhead: "+(100.00-((double)(td+th)/(double)start)*100.00)+"%"); 
+		//Logger.log("Percentage Time Due to Application: "+(100.00-((double)(td+th+ts)/(double)start)*100.00)+"%"); 
+		
+		return true; 
+	}
+	
+	private static void expandFrontier(Page page)
+	{
 		//Expand frontier with any outgoing_urls
-		//Logger.log("Outgoing Links: "); 
 		for(String link : page.outgoing_urls)
 		{
 			URL next_url = null; 
@@ -372,46 +403,31 @@ public class XPathCrawler {
 			catch(MalformedURLException e)
 			{
 				try{
-					next_url = new URL(url.getProtocol(),url.getHost(), link); 
+					next_url = new URL(page.url.getProtocol(),page.url.getHost(), link); 
 				}
 				catch(MalformedURLException e1)
 				{
-					Logger.error(e1.toString()); 
+					Logger.error("URL Conversion Failure on "+page.url+"."); 
 					Logger.log("unrecognizable url format"); 
 				}
 			}
 			if(next_url!=null)
 			{
 				frontier.add(next_url); 
-				//Logger.log(next_url.toString()+", "); 
 			}
 		}
-	
-		Logger.log("Total Elapsed Time: "+(start=System.currentTimeMillis()-start)+"ms");
-		Logger.log("Percentage Time Due to Local Overhead: "+(100.00-((double)(td+th)/(double)start)*100.00)+"%"); 
-		//Logger.log("Percentage Time Due to Application: "+(100.00-((double)(td+th+ts)/(double)start)*100.00)+"%"); 
-		
-		return true; 
 	}
 	
-	private static String updatePageAndData(Page page)
+	private static String updatePageAndData(Page page) throws Exception 
 	{
 		//Retrieve the page data and, optionally, outgoing links
 		ArrayList<String> parsed_list = null;
 		try {
-			parsed_list = URLMessenging.outputToString(page.url, page.type==StatusCodes.HTML, null);
+			parsed_list = URLMessenging.outputToString(page.url, page.type.equals(Status.Code.HTML), null);
 		} catch (Exception e3) {
 			// TODO Auto-generated catch block
 			e3.printStackTrace();
 		}
-		
-		URL url = null;
-		try {
-			url = new URL(page.url);
-		} catch (MalformedURLException e2) {
-			// TODO Auto-generated catch block
-			e2.printStackTrace();
-		} 
 		
 		//error state
 		if(parsed_list==null || parsed_list.isEmpty())
@@ -434,13 +450,16 @@ public class XPathCrawler {
 				catch(MalformedURLException e)
 				{
 					try{ 
-						temp_url = new URL((url.getProtocol()+"://"+url.getHost()+(url.getPort()!=-1 ? (":"+url.getPort()) : "")
-								+ (url.getPath().isEmpty() ? "/" : "")+url.getPath()+link).trim()); 
+						temp_url = new URL((page.url.getProtocol()+"://"+page.url.getHost()+
+								(page.url.getPort()!=-1 ? (":"+page.url.getPort()) : "")
+								+ (page.url.getPath().isEmpty() ? "/" : "")+page.url.getPath()+link).trim()); 
 						parsed_list.set(x, temp_url.toString()); 
 					}
 					catch(MalformedURLException e1)
 					{
-						Logger.error(e1.toString()); 
+						Logger.error("URL Conversion Failure on "+(page.url.getProtocol()+"://"+page.url.getHost()+
+								(page.url.getPort()!=-1 ? (":"+page.url.getPort()) : "")
+								+ (page.url.getPath().isEmpty() ? "/" : "")+page.url.getPath()+link).trim()); 
 						found_invalid = true; 
 						parsed_list.set(x, null); 
 						continue; 
@@ -475,18 +494,21 @@ public class XPathCrawler {
 	 * @param page_updated True if page was updated this crawl.
 	 *
 	 */
-	static boolean updateChannels(String data, Page page, boolean page_updated)
+	static boolean updateChannels(String data, Page page, boolean page_updated) throws Exception 
 	{	
 		boolean matched = false;  
-		
+			
 		//If the page data was not obtained from a URL and the page has not been
-		//modified, retrieve it from the database
-		if(data==null && !page_updated)
+		//modified, retrieve it from the database (assuming it's stored)
+		if(data==null && !page_updated && page.stored)
 		{
-			data = db.retrievePageData(page.url); 
-			Logger.log((data!=null) ? "Successfully retrieved from database.\n" : ""); 
+			data = db.retrievePageData(page); 
+			Logger.log((data!=null) ? "Successfully retrieved from database.\n" : "Retrieval from database" +
+					" was unsuccessful. The page was not previously matched."); 
 		}
-		else
+		
+		//This will only happen on download errors (i.e. timeouts and refusals)
+		if(data==null)
 			return false; 
 		
 		//If a channel has been deleted, we need to update page.channels
@@ -508,42 +530,32 @@ public class XPathCrawler {
 		HashSet<String> page_channels = new HashSet<String>();
 		page_channels.addAll(page.channels);
 		
-		//Match all XPaths against the document
-		//TODO: modify XPathEngine constructor for efficiency
-		ArrayList<String> list = new ArrayList<String>(); 
-		list.addAll(xpath_map.keySet());
-		String[] xpaths = list.toArray(new String[list.size()]);
-		boolean[] results = new boolean[xpaths.length]; 
-		
-		XPathEngine engine = new XPathEngine(xpaths); 
-		try {
-			System.out.println("trying"); 
-			Document doc = DocumentCreator.convertToDocument(page, data);
-			if(doc==null)
-			{
-				Logger.log("FAILED to parse document"); 
-				return false;
-			}
-			results = engine.evaluate(doc);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			Logger.error(e.toString());
-		} 
-		
+		boolean[] results = new boolean[engine.size()]; 
+	
+		Document doc = DocumentCreator.convertToDocument(page, data);
+		if(doc==null)
+		{
+			Logger.log("FAILED to parse document"); 
+			return false;
+		}
+		results = engine.evaluate(doc);
+	 
 		//For each xpath match, perform necessary updating
-		for(int x=0;x<xpaths.length;x++)
+		for(int x=0;x<engine.size();x++)
 		{
 			String xpath; 
 			//If XPath valid on the page
 			if(results[x])
 			{
 				matched = true; 
-				xpath = xpaths[x]; 
+				xpath = engine.getXPath(x); 
+				System.out.print("\nMatched XPATH: "+xpath);
 				String[] channel_list = xpath_map.get(xpath); 
 				
 				//Check each channel associated with the XPath
 				for(String channel : channel_list)
 				{
+					System.out.println(". It will appear in "+channel+"\n"); 
 					//Only create channel/page association if not 
 					//already present in page and if the channel
 					//has not already been considered in this loop  
@@ -557,11 +569,10 @@ public class XPathCrawler {
 				}
 			}
 		}
-		
 		return matched; 
 	}
 	
-	private static boolean crawledThisRun(URL url)
+	private static boolean crawledThisRun(URL url) throws Exception 
 	{
 		String[] arr = url.getPath().split("/", 2);
 		HashMap<String, HashSet<String>> temp_map = null; 
@@ -582,7 +593,7 @@ public class XPathCrawler {
 		return true; 
 	}
 	
-	private static void markAsCrawled(URL url)
+	private static void markAsCrawled(URL url) throws Exception 
 	{
 		HashMap<String, HashSet<String>> direc_map = null;
 		Pattern pat = Pattern.compile("[^/]*"); 
@@ -605,7 +616,6 @@ public class XPathCrawler {
 			}
 			catch(Exception e)
 			{
-				Logger.error(e.toString()); 
 				temp_set.add(""); 
 			}
 		}
@@ -620,48 +630,39 @@ public class XPathCrawler {
 			}
 			catch(Exception e)
 			{
-				Logger.error(e.toString()); 
 				temp_set.add(""); 
 			}
 		}
 	}
 	
-	private static void isDisallowed(Page page, boolean is_new)
+	private static void isDisallowed(Page page, boolean is_new) throws Exception
 	{
-		URL tmp;
-		try {
-			tmp = new URL(page.url);
-		} catch (MalformedURLException e) {
-			Logger.error(e.toString());
-			return;
-		}
-		String[] arr = page.url.split("/"); 
-		String robot_url = "http://"+arr[2]+"/robots.txt"; 
-		Robot robot = robots.get(arr[2]); 
+		String robot_url = page.url.getProtocol()+"://"+page.url.getHost()+"/robots.txt"; 
+		Robot robot = robots.get(page.url.getHost()); 
 		
 		//If we don't have an entry for the robot, acquire one
 		if(robot==null) 
-			robot = new Robot(arr[2]); 
+			robot = new Robot(page.url.getHost()); 
 		
 		//Update robots if not checked
-		if(!checked_robots.contains(arr[2]))
+		if(!checked_robots.contains(page.url.getHost()))
 		{
 			updateRobot(robot_url, robot, robot.time_last_access);
-			if(modified_robots.contains(arr[2]))
+			if(modified_robots.contains(page.url.getHost()))
 			{
 				//Overwrite robot data after the check, if necessary
 				db.insertRobot(robot); 		
-				robots.put(arr[2], robot);
+				robots.put(page.url.getHost(), robot);
 			}
 		}
 		
 		//Only overwrite page crawl params if modifications were made
 		//or the page is new
-		if(modified_robots.contains(arr[2]) || is_new)
+		if(modified_robots.contains(page.url.getHost()) || is_new)
 		{   
 			for(String str : robot.disallows)
 			{
- 				if(tmp.getPath().startsWith((str)))
+ 				if(page.url.getPath().startsWith((str)))
  				{
 					page.can_crawl=false; 
  				}
@@ -670,25 +671,18 @@ public class XPathCrawler {
 		}
 	}
 	
-	private static void updateRobot(String robot_url, Robot robot, long time_last_access)
+	private static void updateRobot(String robot_url, Robot robot, long time_last_access) throws Exception 
 	{
 		String[] headers = null;
 		if(time_last_access!=0)
 		{
 			headers = new String[1]; 
-			try {
-				headers[0] = "If-Modified-Since: "+URLMessenging.dateToStringURL(new Date(time_last_access));
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				Logger.error(e.toString());
-			} 
+			headers[0] = "If-Modified-Since: "+URLMessenging.dateToStringURL(new Date(time_last_access)); 
 		}
 		BufferedReader reader = null;
 		try {
-			reader = URLMessenging.retrieveReader(robot_url, headers);
+			reader = URLMessenging.retrieveReader(new URL(robot_url), headers);
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			Logger.error(e.toString());
 		} 
 		checked_robots.add(robot.host); 
 		
@@ -699,99 +693,87 @@ public class XPathCrawler {
 		}
 	}
 	
-	private static void parseRobot(BufferedReader reader, Robot robot)
+	private static void parseRobot(BufferedReader reader, Robot robot) throws Exception
 	{
 		String line; 
 		boolean record_mode=false, last_check=false; 
-		
-		try
+	
+		while((line=reader.readLine())!=null)
 		{
-			while((line=reader.readLine())!=null)
+			line = line.replaceFirst("#.*", "").trim();
+			String lc = line.toLowerCase(); 
+			
+			if(lc.startsWith("user-agent:"))
 			{
-				line = line.replaceFirst("#.*", "").trim();
-				String lc = line.toLowerCase(); 
-				
-				if(lc.startsWith("user-agent:"))
+				record_mode = false; 
+				if(line.length()==11) continue; 
+				line = line.substring(11).trim();
+				if(line.equals("cis455crawler"))
 				{
-					record_mode = false; 
-					if(line.length()==11) continue; 
-					line = line.substring(11).trim();
-					if(line.equals("cis455crawler"))
-					{
-						record_mode = true; 
-						last_check = true; 
-						robot.disallows = new ArrayList<String>(); 
-					}
-					if(line.equals("*"))
-					{
-						record_mode = true; 
-						robot.disallows = new ArrayList<String>(); 
-					}
-					continue; 
+					record_mode = true; 
+					last_check = true; 
+					robot.disallows = new ArrayList<String>(); 
 				}
-				
-				if(record_mode==true && lc.startsWith("disallow:"))
+				if(line.equals("*"))
 				{
-					if(line.length()==9) continue;
-					line = line.substring(9).trim();
-					if(line.charAt(line.length()-1)=='/')
-						line = line.substring(0, line.length()-1); 
-					if(robot.disallows!=null)
-						robot.disallows.add(line);
-					continue; 
+					record_mode = true; 
+					robot.disallows = new ArrayList<String>(); 
 				}
-				
-				if(record_mode==true && lc.startsWith("crawl-delay:"))
+				continue; 
+			}
+			
+			if(record_mode==true && lc.startsWith("disallow:"))
+			{
+				if(line.length()==9) continue;
+				line = line.substring(9).trim();
+				if(line.charAt(line.length()-1)=='/')
+					line = line.substring(0, line.length()-1); 
+				if(robot.disallows!=null)
+					robot.disallows.add(line);
+				continue; 
+			}
+			
+			if(record_mode==true && lc.startsWith("crawl-delay:"))
+			{
+				if(line.length()==12) continue; 
+				line = line.substring(12).trim(); 
+				try
 				{
-					if(line.length()==12) continue; 
-					line = line.substring(12).trim(); 
-					try
-					{
-						robot.crawl_delay = Long.parseLong(line); 
-					}
-					catch(Exception e)
-					{}
-					continue;
+					robot.crawl_delay = Long.parseLong(line); 
 				}
-				
-				if(line.length()==0)
-				{
-					record_mode = false; 
-					if(last_check)
-						break; 
-				}
+				catch(Exception e)
+				{}
+				continue;
+			}
+			
+			if(line.length()==0)
+			{
+				record_mode = false; 
+				if(last_check)
+					break; 
 			}
 		}
-		catch(Exception e)
-		{
-			Logger.error(e.toString());
-		}
 		
-		try {
-			reader.close();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			Logger.error(e.toString());
-		}
-		
+		reader.close();
 		robot.time_last_access = (new Date()).getTime();
 	}
 	
 	public static void main(String args[])
-	{
-		//WARNING: THIS MUST BE REMOVED TODO
-		Testing.createNewTestDB(); 
-		
+	{	
 		long begun = System.currentTimeMillis(); 
 		System.out.println("Crawling. Please wait");
 		
 		//Enable Logging
-		Logger.log = true; 
-		Logger.error = true; 
+		System.setErr(new PrintStream(new OutputStream() {
+            @Override
+            public void write(int arg0) throws IOException {
+                // keep empty
+            }
+        }));
 		
-		if(args.length<3 || args.length>4) 
+		if(args.length<3 || args.length>5) 
 		{
-			Logger.log("Invalid number of arguments to crawler. Quitting."); 
+			System.out.println("Invalid number of arguments to crawler. Quitting."); 
 			System.exit(1); 
 		}
 		
@@ -800,22 +782,20 @@ public class XPathCrawler {
 			start_url = new URL(url_start);
 		} catch (MalformedURLException e1) {
 			// TODO Auto-generated catch block
-			Logger.error(e1.toString());
-			Logger.log("Invalid starting url"); 
+			e1.printStackTrace(); 
+			System.out.println("Invalid starting url. Quitting.");
+			System.exit(1); 
 		} 
-		
-		Logger.log("CRAWLER LOG OUTPUT\n\nLast Run: "+new Date().toString()+"\n"+"Seed URL: "+url_start+"\n"); 
-		Logger.error("ERROR OUTPUT\n"); 
 		
 		//Setup BDB Environment 
 		try
 		{
-			db = new DatabaseWrapper(args[1]); 
+			db = new DatabaseWrapper(System.getProperty("user.dir").concat(args[1])); 
 		}
 		catch(Exception e)
 		{
-			Logger.log("Failed to instantiate database. Quitting."); 
-			Logger.error(e.toString()); 
+			e.printStackTrace(); 
+			System.out.println("Failed to instantiate database. Quitting."); 
 			System.exit(1); 
 		}
 		
@@ -826,8 +806,8 @@ public class XPathCrawler {
 		}
 		catch (NumberFormatException e)
 		{
-			Logger.error(e.toString()); 
-			Logger.log("Invalid max file size argument. Quitting."); 
+			e.printStackTrace();
+			System.out.println("Invalid max file size argument. Quitting."); 
 			System.exit(1); 
 		}
 		
@@ -839,14 +819,38 @@ public class XPathCrawler {
 			}
 			catch (NumberFormatException e)
 			{
-				Logger.error(e.toString()); 
-				Logger.log("Invalid max files retrieved argument. Quitting."); 
+				e.printStackTrace(); 
+				System.out.println("Invalid max files retrieved argument. Quitting."); 
 				System.exit(1); 
 			}
 		}
 		
-		runCrawler();
-		db.close(); 
+		//Logger flag (logger is optional)
+		if(args.length==5)
+		{
+			if(args[4].trim().equals("-l")); 
+				Logger.log = true; 
+		}
+		
+		//Error log defaults to true
+		Logger.error = true; 
+		
+		//Prep Logs
+		Logger.log("CRAWLER LOG OUTPUT\n\nLast Run: "+new Date().toString()+"\n"+"Seed URL: "+url_start+"\n"); 
+		Logger.error("ERROR OUTPUT\n"); 
+		
+		try {
+			runCrawler();
+		} catch (Exception e) {
+			Logger.log("Crawler encountered fatal error. Refer to error log for details."); 
+			Logger.error("FATAL CRAWLER ERROR"); 
+			e.printStackTrace(Logger.getErrorWriter());
+		}
+		try {
+			db.close();
+		} catch (Exception e) {
+			e.printStackTrace(Logger.getErrorWriter());
+		} 
 		Logger.log("done");
 		Logger.terminate(); 
 		System.out.println("\nDone! Total Time: ~"+((System.currentTimeMillis()-begun)/1000)+"s\nIf the Logger was enabled" +

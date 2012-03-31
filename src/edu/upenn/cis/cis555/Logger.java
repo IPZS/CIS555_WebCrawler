@@ -1,16 +1,19 @@
-//package edu.upenn.cis.cis555;
+package edu.upenn.cis.cis555;
 
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 
 public class Logger {
 	
-	static BufferedWriter log_writer, error_writer; 
-	static File log_file, error_file;
-	static boolean log = false, error=false, log_initialized = false, error_initialized = false; 
+	private static PrintWriter log_writer, error_writer; 
+	private static File log_file, error_file;
+	private static int log_count = 15;  
+	static boolean log = false, error=false; 
+	private static boolean log_initialized = false, error_initialized = false; 
 	
 	static void log(String message)
 	{
@@ -21,7 +24,7 @@ public class Logger {
 			log_file.delete(); 
 			log_file = new File("LOG");
 			try {
-				log_writer = new BufferedWriter(new FileWriter(log_file));
+				log_writer = new PrintWriter((new BufferedWriter(new FileWriter(log_file))));
 			} catch (FileNotFoundException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -33,14 +36,14 @@ public class Logger {
 		}
 		if(log_writer!=null)
 		{
-			try{
-			log_writer.write(message); 
-			log_writer.write("\n");
-			}
-			catch(IOException e)
-			{
-				e.printStackTrace(); 
-			}
+			log_writer.println(message);
+			log_count--; 
+		}
+		//Autoflush every 15 lines 
+		if(log_count==0)
+		{
+			log_writer.flush(); 
+			log_count = 15; 
 		}
 	}
 	
@@ -53,7 +56,7 @@ public class Logger {
 			error_file.delete(); 
 			error_file = new File("ERROR");
 			try {
-				error_writer = new BufferedWriter(new FileWriter(error_file));
+				error_writer = new PrintWriter(new BufferedWriter(new FileWriter(error_file)));
 			} catch (FileNotFoundException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -65,58 +68,27 @@ public class Logger {
 		}
 		if(error_writer!=null)
 		{
-			try{
-			error_writer.write(message); 
-			error_writer.write("\n");
-			}
-			catch(IOException e)
-			{
-				e.printStackTrace(); 
-			}
+			error_writer.print("[ERROR]"); 
+			error_writer.println(message);
+			error_writer.flush(); 			//NOTE: error log flushes on every message
 		}
 	}
 	
-	static void flush()
+	//Intended for use with stack trace printing 
+	static PrintWriter getErrorWriter()
 	{
-		if(log_writer!=null)
-		{
-			try {
-				log_writer.flush();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
-		if(error_writer!=null)
-		{
-			try {
-				error_writer.flush();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
+		return error_writer; 
 	}
 	
 	static void terminate()
 	{
 		if(log_writer!=null)
 		{
-			try {
-				log_writer.close();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} 
+			log_writer.close(); 
 		}
 		if(error_writer!=null)
 		{
-			try {
-				error_writer.close();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} 
+			error_writer.close(); 
 		}
 	}
 }

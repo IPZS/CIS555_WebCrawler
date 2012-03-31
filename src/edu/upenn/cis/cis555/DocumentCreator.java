@@ -1,4 +1,4 @@
-//package edu.upenn.cis.cis555;
+package edu.upenn.cis.cis555;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -25,145 +25,153 @@ import org.w3c.tidy.Tidy;
 import org.xml.sax.SAXException;
 
 public class DocumentCreator {
-	
+
 	/*
-	 * Parses a given URL (HTTP or absolute directory path) and creates a DOM-style Document node
-	 * from an XML or HTML file. 
+	 * Parses a given URL (HTTP or absolute directory path) and creates a
+	 * DOM-style Document node from an XML or HTML file.
 	 * 
-	 * @param url A String indicating either a directory path (absolute or relative to the accessible root)
-	 * or an HTTP URL pointing to the resource to be converted to a Document. 
+	 * @param url A String indicating either a directory path (absolute or
+	 * relative to the accessible root) or an HTTP URL pointing to the resource
+	 * to be converted to a Document.
 	 * 
-	 * @param file_name The desired filename if the file should be stored. Pass in null to specify
-	 * a temporary file that should be deleted on exit. 
+	 * @param file_name The desired filename if the file should be stored. Pass
+	 * in null to specify a temporary file that should be deleted on exit.
 	 * 
-	 * @return The Document matching the URL or null on error. 
+	 * @return The Document matching the URL or null on error.
 	 */
-	public static Document createDocument(String url, String file_name) throws IOException
-	{
-		String location = null, machine=null; 
+	public static Document createDocument(String str_url, String file_name)
+			throws Exception {
+		String location = null, machine = null;
 		Socket client = null;
-		File file = null; 
+		File file = null;
 		Document doc = null;
 		InputStream input = null;
-		boolean is_xml=false; 
+		boolean is_xml = false;
 		
-		//handle URL case
-		if(url.startsWith("http://"))
-		{	
-			//Send HEAD request to check url validity 
+		// handle URL case
+		if (str_url.startsWith("http://")) {
+			// Send HEAD request to check url validity
 			HashMap<String, String> head_check = null;
+			
+			URL url = new URL(str_url); 
+			
 			try {
 				head_check = URLMessenging.checkHead(url, null);
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				Logger.error(e.toString());
-			} 
-			if(head_check==null) return null; 
-			if(head_check.isEmpty()) return null; 
-			
-			if(!head_check.get("initial").contains("200")) return null;
-			
-			for(int x=1;x<head_check.size();x++)
-			{
-				String line= head_check.get("content-type"); 
-				if(line!=null)
-				{
-					if(line.contains("text/xml") || line.contains("application/xml"))
-						is_xml=true; 
-					else
-					{
-						if(!line.contains("text/html"))
-							return null; 
+			}
+			if (head_check == null)
+				return null;
+			if (head_check.isEmpty())
+				return null;
+
+			if (!head_check.get("initial").contains("200"))
+				return null;
+
+			for (int x = 1; x < head_check.size(); x++) {
+				String line = head_check.get("content-type");
+				if (line != null) {
+					if (line.contains("text/xml")
+							|| line.contains("application/xml"))
+						is_xml = true;
+					else {
+						if (!line.contains("text/html"))
+							return null;
 					}
 				}
 			}
-			
-			//Send GET request to obtain and save file
-			if(file_name==null) file_name = "TEMP"; 
+
+			// Send GET request to obtain and save file
+			if (file_name== null)
+				file_name = "TEMP";
 			file = URLMessenging.outputToFile(url, file_name);
-			if(file==null) return null; 
-			if(file_name.equals("TEMP")) file.deleteOnExit(); 
-		}
-		else
-		{
-			//otherwise, default to local file
-			file = new File(url); 
-			if(file == null || !file.isFile())
-				return null; 
-			else
-			{
-				MimetypesFileTypeMap typemap = new MimetypesFileTypeMap(); 
-				if(typemap.getContentType(file).contains("text/html")) is_xml=false;
-				else
-				{
-					if(typemap.getContentType(file).contains("text/xml")) is_xml = true;
-					else return null; 
+			if (file == null)
+				return null;
+			if (file_name.equals("TEMP"))
+				file.deleteOnExit();
+		} else {
+			// otherwise, default to local file
+			file = new File(str_url);
+			if (file == null || !file.isFile())
+				return null;
+			else {
+				MimetypesFileTypeMap typemap = new MimetypesFileTypeMap();
+				if (typemap.getContentType(file).contains("text/html"))
+					is_xml = false;
+				else {
+					if (typemap.getContentType(file).contains("text/xml"))
+						is_xml = true;
+					else
+						return null;
 				}
 			}
-		} 
-		
-		//JTidy for HTML
-		if(!is_xml)
-		{
+		}
+
+		// JTidy for HTML
+		if (!is_xml) {
 			input = new FileInputStream(file);
 			Tidy tidy = new Tidy();
-			tidy.setTidyMark(false); 
+			//believe it or not
+			tidy.setTidyMark(false);
 			tidy.setShowWarnings(false);
-			doc = tidy.parseDOM(input, null); 
+			tidy.setHideComments(true);
+			tidy.setQuiet(true);
+			tidy.setShowErrors(0); 
+			//tidy.setErrout(null);
+			//it still prints errors...
+			doc = tidy.parseDOM(input, null);
 		}
-		//DocumentBuilder for XML
-		else
-		{
+		// DocumentBuilder for XML
+		else {
 			try {
-				doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file);
+				doc = DocumentBuilderFactory.newInstance().newDocumentBuilder()
+						.parse(file);
 			} catch (SAXException e) {
 				Logger.error(e.toString());
-				return null; 
+				return null;
 			} catch (ParserConfigurationException e) {
 				Logger.error(e.toString());
-				return null; 
+				return null;
 			} catch (FactoryConfigurationError e) {
 				Logger.error(e.toString());
-				return null; 
-			}  
+				return null;
+			}
 		}
-		
-		return doc; 
+
+		return doc;
 	}
-	
+
 	/*
-	 * Retrieves a Page from the provided database and creates a DOM-style Document node 
-	 * corresponding to its data. 
+	 * Creates a DOM-style Document node corresponding to a String of formatted data.
 	 * 
-	 * @param url A String that is a key into the database for the desired page.  
+	 * @param page The Page providing metadata for the physical page 
 	 * 
-	 * @param db The DatabaseWrapper from which to retrieve the page.
-	 * 
-	 * @return The Document corresponding to the Page or null on error. 
+	 * @param data The String containing the data output retrieved via URL or from the database. 
+	 *  
+	 * @return The Document corresponding to the Page or null on error.
 	 */
-	public static Document convertToDocument(Page page, String data) throws IOException
-	{
+	public static Document convertToDocument(Page page, String data)
+			throws IOException {
 		Document doc = null;
 		InputStream input = null;
-		
-		input = new ByteArrayInputStream(data.getBytes("UTF-8")); 
-		
-		//JTidy for HTML
-		if(page.type==StatusCodes.HTML)
-		{
-			long start = System.currentTimeMillis(); 
+
+		input = new ByteArrayInputStream(data.getBytes("UTF-8"));
+
+		// JTidy for HTML
+		if (page.type == Status.Code.HTML) {
+			long start = System.currentTimeMillis();
 			Tidy tidy = new Tidy();
-			tidy.setTidyMark(false); 
+			tidy.setTidyMark(false);
 			tidy.setShowWarnings(false);
-			doc = tidy.parseDOM(input, null); 
-			System.out.println("JTidy Parse Time: "+(System.currentTimeMillis()-start)+"ms"); 
+			doc = tidy.parseDOM(input, null);
 		}
-		//DocumentBuilder for XML
-		else
-		{
-			long start = System.nanoTime(); 
-			try { 
-				doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(input);
+		// DocumentBuilder for XML
+		else {
+			long start = System.nanoTime();
+			try {
+				doc = DocumentBuilderFactory.newInstance().newDocumentBuilder()
+						.parse(input);
 			} catch (SAXException e) {
 				// TODO Auto-generated catch block
 				Logger.error(e.toString());
@@ -174,10 +182,9 @@ public class DocumentCreator {
 				// TODO Auto-generated catch block
 				Logger.error(e.toString());
 			}
-			System.out.println("DocBuilder Parse Time: "+(System.currentTimeMillis()-start)+"ms"); 
 		}
-		
-		return doc; 
+
+		return doc;
 	}
-	
+
 }

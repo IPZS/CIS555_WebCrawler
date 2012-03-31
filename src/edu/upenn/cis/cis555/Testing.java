@@ -1,6 +1,7 @@
-//package edu.upenn.cis.cis555; 
+package edu.upenn.cis.cis555; 
 
 import java.io.IOException;
+import java.net.URL;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -12,7 +13,14 @@ public class Testing {
 	{
 		for(String location : locations)
 		{
-			Document doc = DocumentCreator.createDocument(location, null);
+			Document doc;
+			try {
+				doc = DocumentCreator.createDocument(location, null);
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+				return; 
+			}
 			XPathEngine engine = new XPathEngine(new String[0]);
 			System.out.println("URL: "+location);
 			engine.printTree(doc); 
@@ -53,7 +61,27 @@ public class Testing {
 			e.printStackTrace();
 		}
 		for(String page : pages)
-			System.out.println(test.retrievePageData(page)+"end\n\nbegin"); 
+		{
+			try{
+			URL url = new URL(page); 
+			System.out.println(test.retrievePageData(test.retrievePageMetadata(url))+"end\n\nbegin"); }
+			catch(Exception e)
+			{
+				e.printStackTrace();
+				return; 
+			}
+		}
+	}
+	
+	private static void displayUsers()
+	{
+		DatabaseWrapper test = null;
+		try {
+			test = new DatabaseWrapper("/home/cis555/hw1/bdbstore/");
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 
 	public static void main(String args[])
